@@ -113,7 +113,7 @@ FILTER_ZSTD = 0x35
 FILTER_PPMD = 0x36
 FILTER_BROTLI = 0x37
 FILTER_DEFLATE64 = 0x38
-
+FILTER_LZ4 = 0x39
 
 class Constant:
     """Constant base class."""

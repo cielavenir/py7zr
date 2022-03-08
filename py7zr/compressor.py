@@ -56,6 +56,7 @@ from py7zr.properties import (
     FILTER_SPARC,
     FILTER_X86,
     FILTER_ZSTD,
+    FILTER_LZ4,
     MAGIC_7Z,
     CompressionMethod,
     get_default_blocksize,
@@ -72,6 +73,7 @@ except ImportError:
 brotli_major = 1
 brotli_minor = 0
 
+import lz4
 
 class ISevenZipCompressor(ABC):
     @abstractmethod
@@ -511,6 +513,33 @@ class ZstdDecompressor(ISevenZipDecompressor):
     def decompress(self, data: Union[bytes, bytearray, memoryview], max_length: int = -1) -> bytes:
         return self.decompressor.decompress(data)
 
+class Lz4Compressor(ISevenZipCompressor):
+    def __init__(self, level: int):
+        self.context = lz4.frame.create_compression_context()
+        self.first = True
+
+    def compress(self, data: Union[bytes, bytearray, memoryview]) -> bytes:
+        ret = b''
+        if self.first:
+            ret = lz4.frame.compress_begin(self.context)
+            self.first = False
+        return ret + lz4.frame.compress_chunk(self.context, data)
+
+    def flush(self) -> bytes:
+        return lz4.frame.compress_flush(self.context)
+
+
+class Lz4Decompressor(ISevenZipDecompressor):
+    def __init__(self, properties: bytes, blocksize: int):
+        #if len(properties) not in [3, 5]:
+        #    raise UnsupportedCompressionMethodError(properties, "Zstd takes 3 or 5 bytes properties.")
+        #if (properties[0], properties[1], 0) > pyzstd.zstd_version_info:
+        #    raise UnsupportedCompressionMethodError(properties, "Zstd version of archive is higher than us.")
+        self.context = lz4.frame.create_decompression_context()
+
+    def decompress(self, data: Union[bytes, bytearray, memoryview], max_length: int = -1) -> bytes:
+        dec, _ , eof = lz4.frame.decompress_chunk(self.context, data)
+        return dec
 
 algorithm_class_map = {
     FILTER_ZSTD: (ZstdCompressor, ZstdDecompressor),
@@ -520,6 +549,7 @@ algorithm_class_map = {
     FILTER_COPY: (CopyCompressor, CopyDecompressor),
     FILTER_DEFLATE: (DeflateCompressor, DeflateDecompressor),
     FILTER_DEFLATE64: (Deflate64Compressor, Deflate64Decompressor),
+    FILTER_LZ4: (Lz4Compressor, Lz4Decompressor),
     FILTER_CRYPTO_AES256_SHA256: (AESCompressor, AESDecompressor),
     FILTER_X86: (BCJEncoder, BCJDecoder),
     FILTER_ARM: (BcjArmEncoder, BcjArmDecoder),
@@ -1037,6 +1067,14 @@ class SupportedMethods:
             "type": MethodsType.compressor,
         },
         {
+            "id": COMPRESSION_METHOD.MISC_LZ4,
+            "name": "LZ4",
+            "native": False,
+            "need_prop": False,
+            "filter_id": FILTER_LZ4,
+            "type": MethodsType.compressor,
+        },
+        {
             "id": COMPRESSION_METHOD.CRYPT_AES256_SHA256,
             "name": "7zAES",
             "native": False,
@@ -1175,7 +1213,7 @@ def get_methods_names(coders_lists: List[List[dict]]) -> List[str]:
         "COPY",
         "PPMd",
         "ZStandard",
-        "LZ4*",
+        "LZ4",
         "BCJ2*",
         "BCJ",
         "ARM",
@@ -1187,7 +1225,7 @@ def get_methods_names(coders_lists: List[List[dict]]) -> List[str]:
     ]
     unsupported_methods = {
         COMPRESSION_METHOD.P7Z_BCJ2: "BCJ2*",
-        COMPRESSION_METHOD.MISC_LZ4: "LZ4*",
+        #COMPRESSION_METHOD.MISC_LZ4: "LZ4*",
     }
     methods_names = []
     for coders in coders_lists:
