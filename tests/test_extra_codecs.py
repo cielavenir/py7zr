@@ -252,14 +252,13 @@ def test_decompress_brotli(tmp_path):
 
 
 @pytest.mark.basic
-@pytest.mark.skip(reason="Deflate64 compression is not implemented yet.")
-def test_compress_decompress_deflate64(tmp_path):
+def test_compress_decompress_lz4(tmp_path):
     # prepare source data
     with py7zr.SevenZipFile(testdata_path.joinpath("bzip2_2.7z").open(mode="rb")) as arc:
         arc.extractall(path=tmp_path)
     # compress with deflate64
     target = tmp_path.joinpath("target.7z")
-    my_filters = [{"id": FILTER_DEFLATE64}]
+    my_filters = [{"id": py7zr.FILTER_LZ4}]
     with py7zr.SevenZipFile(target, "w", filters=my_filters) as archive:
         archive.write(tmp_path.joinpath("10000SalesRecords.csv"), "10000SalesRecords.csv")
     # check extract

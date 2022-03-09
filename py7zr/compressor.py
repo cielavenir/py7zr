@@ -73,7 +73,7 @@ except ImportError:
 brotli_major = 1
 brotli_minor = 0
 
-import lz4
+import lz4.frame
 
 class ISevenZipCompressor(ABC):
     @abstractmethod
@@ -514,7 +514,7 @@ class ZstdDecompressor(ISevenZipDecompressor):
         return self.decompressor.decompress(data)
 
 class Lz4Compressor(ISevenZipCompressor):
-    def __init__(self, level: int):
+    def __init__(self): #, level: int):
         self.context = lz4.frame.create_compression_context()
         self.first = True
 
@@ -530,7 +530,7 @@ class Lz4Compressor(ISevenZipCompressor):
 
 
 class Lz4Decompressor(ISevenZipDecompressor):
-    def __init__(self, properties: bytes, blocksize: int):
+    def __init__(self): #, properties: bytes, blocksize: int):
         #if len(properties) not in [3, 5]:
         #    raise UnsupportedCompressionMethodError(properties, "Zstd takes 3 or 5 bytes properties.")
         #if (properties[0], properties[1], 0) > pyzstd.zstd_version_info:
